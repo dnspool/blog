@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  
+  
+    
+    <entry>
+      <title><![CDATA[nginx日志]]></title>
+      <url>http://dnspool.cn/2016/08/22/nginx%E6%97%A5%E5%BF%97/</url>
+      <content type="html"><![CDATA[<p>当下火爆的大数据多源自日志，日志记录格式、收集、解析等都是大数据的基础，儿戏不得。</p>
+<a id="more"></a>
+<h1 id="格式"><a href="#格式" class="headerlink" title="格式"></a>格式</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">log_format json_fm &apos;&#123; &quot;@timestamp&quot;: &quot;$time_iso8601&quot;, &apos; </div><div class="line">true&apos;&quot;remote_addr&quot;: &quot;$remote_addr&quot;, &apos;</div><div class="line">true&apos;&quot;remote_user&quot;: &quot;$remote_user&quot;, &apos; </div><div class="line">true&apos;&quot;request&quot;: &quot;$request_method $scheme://$host$request_uri $server_protocol&quot;, &apos;	</div><div class="line">true&apos;&quot;status&quot;: $status, &apos;  								</div><div class="line">true&apos;&quot;body_bytes_sent&quot;:$body_bytes_sent, &apos; </div><div class="line">true&apos;&quot;http_referer&quot;: &quot;$http_referer&quot;, &apos;  														</div><div class="line">true&apos;&quot;http_user_agent&quot;: &quot;$http_user_agent&quot;, &apos;</div><div class="line">true&apos;&quot;http_x_forwarded_for&quot;: &quot;$http_x_forwarded_for&quot;, &apos; </div><div class="line">true&apos;&quot;request_time&quot;: &quot;$request_time&quot;, &apos;  </div><div class="line">true&apos;&quot;upstream_response_time&quot;: &quot;$upstream_response_time&quot;, &apos; </div><div class="line">true&apos;&quot;upstream_addr&quot;: &quot;$upstream_addr&quot;, &apos;  	</div><div class="line">true&apos;&quot;backend_url&quot;: &quot;$backend_url&quot;, &apos;</div><div class="line">true&apos;&quot;backend_host&quot;: &quot;$backend_host&quot;&#125;&apos;;</div></pre></td></tr></table></figure>
+<h1 id="轮转"><a href="#轮转" class="headerlink" title="轮转"></a>轮转</h1><ul>
+<li>日志轮转配置</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">cat &gt; /opt/script/logrotate/rotating-Nginx-log.conf &lt;&lt;EOF</div><div class="line">/data/logs/*.log &#123;</div><div class="line">truedaily</div><div class="line">truemissingok</div><div class="line">truerotate 30</div><div class="line">truecompress</div><div class="line">truedateext</div><div class="line">truedelaycompress</div><div class="line">truenotifempty</div><div class="line">truecreate 640 nginx adm</div><div class="line">truesharedscripts</div><div class="line">truepostrotate</div><div class="line">truetruetrue[ -f /data/logs/nginx.pid ] &amp;&amp; kill -USR1 `cat /data/logs/nginx.pid`</div><div class="line">trueendscript</div><div class="line">&#125;</div><div class="line">EOF</div></pre></td></tr></table></figure>
+<ul>
+<li>每日执行日志轮转</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">cat &gt;&gt; /var/spool/cron/root &lt;&lt;EOF</div><div class="line">0 0 * * * /usr/sbin/logrotate -f /opt/script/rotating-Nginx-log.conf &amp;&gt; /dev/null</div><div class="line">EOF</div></pre></td></tr></table></figure>
+<h1 id="收集"><a href="#收集" class="headerlink" title="收集"></a>收集</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line">cat &gt; /opt/script/logstash/nginx.conf &lt;&lt;EOF</div><div class="line">input &#123;</div><div class="line">  file &#123;</div><div class="line">      path =&gt; &quot;/data/logs/*.log&quot;</div><div class="line">      codec =&gt; &quot;json&quot;</div><div class="line">      type =&gt; &quot;&#123;&#123; project_name &#125;&#125;&quot;</div><div class="line">      tags =&gt; [&quot;&#123;&#123; sub_project_name &#125;&#125;&quot;]</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line">output &#123;</div><div class="line">   kafka &#123;</div><div class="line">      bootstrap_servers =&gt;  &quot;&#123;&#123; ip1:port1, ip2:port2 &#125;&#125;&quot;</div><div class="line">      topic_id =&gt; &quot;&#123;&#123; project_name_logs &#125;&#125;&quot;</div><div class="line">      workers =&gt; 4</div><div class="line">      compression_type =&gt; &quot;snappy&quot;</div><div class="line">    &#125;</div><div class="line">    #stdout &#123;</div><div class="line">    #    codec =&gt; rubydebug</div><div class="line">    #&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h1 id="解析"><a href="#解析" class="headerlink" title="解析"></a>解析</h1>]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[linux命令之screen]]></title>
+      <url>http://dnspool.cn/2016/08/22/linux%E5%91%BD%E4%BB%A4%E4%B9%8Bscreen/</url>
+      <content type="html"><![CDATA[<p>做为苦逼SA，有很多的远程执行命令工作，命令执行时长是会影响到执行结果的。这里说的结果是完成或者夭折，你一定懂得… …</p>
+<a id="more"></a>
+<h2 id="会话操作"><a href="#会话操作" class="headerlink" title="会话操作"></a>会话操作</h2><p>一个<strong>会话</strong>可以开出多个<strong>窗口</strong>。会话有几个状态，分别是attache（连接）、detache（断开）、dead（会话被人为kill掉）、remove（screen -wipe清除的）。</p>
+<h3 id="开启会话"><a href="#开启会话" class="headerlink" title="开启会话"></a>开启会话</h3><p><code>screen -S  会话名称</code>  # 指定名称切换会比较方便<code>screen 会话名称</code>就可以了</p>
+<h3 id="会话置后台"><a href="#会话置后台" class="headerlink" title="会话置后台"></a>会话置后台</h3><p><code>Ctrl-A d</code> ，将当前会话（可能包含多个窗口）放后台</p>
+<h3 id="查看会话"><a href="#查看会话" class="headerlink" title="查看会话"></a>查看会话</h3><p><code>screen -ls</code></p>
+<h3 id="强置后台"><a href="#强置后台" class="headerlink" title="强置后台"></a>强置后台</h3><p>对于已经Attached的会话，以便接管要先执行<code>screen -d 会话名称</code></p>
+<h3 id="接管会话"><a href="#接管会话" class="headerlink" title="接管会话"></a>接管会话</h3><p><code>screen -r 会话名称</code></p>
+<h3 id="强制接管"><a href="#强制接管" class="headerlink" title="强制接管"></a>强制接管</h3><p><code>screen -d -r 会话名称</code></p>
+<h3 id="关闭会话"><a href="#关闭会话" class="headerlink" title="关闭会话"></a>关闭会话</h3><p>在需要关闭的会话执行<code>exit</code>即可</p>
+<h3 id="试图恢复会话，找不到新建"><a href="#试图恢复会话，找不到新建" class="headerlink" title="试图恢复会话，找不到新建"></a>试图恢复会话，找不到新建</h3><p><code>screen -R 会话名称</code></p>
+<h3 id="屏幕切分："><a href="#屏幕切分：" class="headerlink" title="屏幕切分："></a>屏幕切分：</h3><ul>
+<li>水平切分: C-a S</li>
+<li>垂直切分: C-a |</li>
+<li>区块互切: C-a Tab</li>
+<li>关闭当前区块: C-a X</li>
+<li>关闭其它区块: C-a Q</li>
+</ul>
+<h3 id="会话共享"><a href="#会话共享" class="headerlink" title="会话共享"></a>会话共享</h3><p><code>screen -x -r 会话名称</code> </p>
+<h2 id="窗口操作"><a href="#窗口操作" class="headerlink" title="窗口操作"></a>窗口操作</h2><p>在会话中所有命令都以<code>Ctrl+A</code>（以下简写为<code>&#39;C-a&#39;</code>）开始</p>
+<p>开启新窗口: C-a c</p>
+<p>窗口命名: C-a A 窗口名称</p>
+<p>保存窗口: C-a d</p>
+<p>切下一窗口: C-a n</p>
+<p>切上一窗口: C-a p</p>
+<p>互切两窗口: C-a C-a</p>
+<p>编号切窗口: C-a 0..9</p>
+<p>列出窗口: C-a w</p>
+<p>关闭窗口: C-a K(大写)</p>
+<p>移动至行首: C-a a， 作用在bash下</p>
+<p>时间和负载: C-a t</p>
+<p>copy mode: C-a [， 像使用vi一样，可以回滚，搜索，复制</p>
+<p>向上翻页: C-b Backward</p>
+<p>向下翻页: C-b Forward</p>
+<p>光标至左上:  H</p>
+<p>光标至左下:  L</p>
+<p>移动至行首:  0</p>
+<p>移动至行尾:  $</p>
+<p>每字符前移:  w</p>
+<p>每字符后移:  b</p>
+<p>块区标记:  Space （首次标记起点，二次标记终点）</p>
+<p>结束copymode:  Esc</p>
+<p>粘贴以上选定内容:  C-a ]</p>
+<p>显示帮助:  C-a ?</p>
+]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[linux命令之find]]></title>
+      <url>http://dnspool.cn/2016/08/20/linux%E5%91%BD%E4%BB%A4%E4%B9%8Bfind/</url>
+      <content type="html"><![CDATA[<p><code>find</code>顾名思义是查找，Linux”一切皆文件”的哲学注定<code>find</code>只能查找文件。</p>
+<a id="more"></a>
+<p>[TOC]</p>
+<h1 id="命令语法"><a href="#命令语法" class="headerlink" title="命令语法"></a>命令语法</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">find path -option [-print] [-exec|-ok command] &#123;&#125; \;</div><div class="line"></div><div class="line"># 参数解析</div><div class="line">-exec:</div><div class="line">    对find结果执行该参数连接的command；</div><div class="line">-ok:</div><div class="line">    是一种更安全的模式执行command,需要执行确认；</div></pre></td></tr></table></figure>
+<h1 id="查找条件"><a href="#查找条件" class="headerlink" title="查找条件"></a>查找条件</h1><p>使用<code>option</code>指定查找条件</p>
+<ul>
+<li>名称 <code>-name filename</code></li>
+<li>权限 <code>-perm mode</code> </li>
+<li>用户<ul>
+<li><code>-user username | -uid UID</code></li>
+<li><code>-group groupname | -gid GID</code></li>
+<li><code>-nouser</code></li>
+<li><code>-nogroup</code></li>
+</ul>
+</li>
+<li><p>时间</p>
+<ul>
+<li><code>-n</code>最近n天内xx的，<code>+n</code>是n天前xx的；</li>
+<li>创建时间 <code>-ctime -|+n</code><ul>
+<li>访问时间 <code>-atime -|+n</code></li>
+<li>更改时间 <code>-mtime -|+n</code> </li>
+</ul>
+</li>
+<li><code>-n</code>最近n分钟内xx的，<code>+n</code>是n分钟前xx的；<ul>
+<li><code>-cmin -|+n</code></li>
+</ul>
+</li>
+<li><code>-amin -|+n</code></li>
+<li><code>-mmin -|+n</code></li>
+<li><code>-used -|+n</code></li>
+<li>参照时间<ul>
+<li><code>-newer f</code>，比f新的</li>
+<li><code>-newer f1 !f2</code>，比f1新但比f2旧</li>
+</ul>
+</li>
+<li><code>-anewer f</code> f存取以后存取的文件</li>
+</ul>
+</li>
+<li><p>类型 <code>-type b|d|c|p|l|f</code>，以次是块设备|目录|字符设备|管道|符号链接|普通文件</p>
+</li>
+<li>大小 <ul>
+<li><code>-size [-|+n][c|k|M|G]</code>，长度为n块[或n字节]的文件</li>
+<li><code>-empty</code></li>
+</ul>
+</li>
+<li>正则 <code>-regex</code></li>
+<li>路径深度 <ul>
+<li><code>-maxdepth n</code> n为1是当前层目录，以此类推</li>
+<li><code>-mindepth n</code></li>
+</ul>
+</li>
+<li><p><code>links -|+n</code> 硬链接小于|大于n的文件或目录</p>
+</li>
+<li><p><code>-fstype</code></p>
+</li>
+</ul>
+<h1 id="查找行为"><a href="#查找行为" class="headerlink" title="查找行为"></a>查找行为</h1><ul>
+<li><code>-mount</code></li>
+<li><code>-depth</code> 使查找在进入子目录前先行查找完本目录</li>
+<li><code>-follow</code> 遇到符号链接文件进行跟踪所指的文件</li>
+<li><code>-prune</code> 忽略目录</li>
+</ul>
+<h1 id="查找目的"><a href="#查找目的" class="headerlink" title="查找目的"></a>查找目的</h1><p>使用<code>-exec|-ok command {} \;</code>或<code>| xargs command</code>直接达到目的</p>
+<p><code>-cpio</code> 对匹配的文件使用此命令</p>
+<h1 id="常惯用例"><a href="#常惯用例" class="headerlink" title="常惯用例"></a>常惯用例</h1><p>使用管道来处理<code>find</code>结果</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -name *.log -o -name *.tmp | xargs rm -rf</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find logs/ -type f -mtime +7 -exec rm -f &#123;&#125; \;</div></pre></td></tr></table></figure>
+<p>在$HOME中查找以大写字母开头的文件，结果输出到file</p>
+<p><code>find ~ -name &quot;[A-Z]*&quot; fprint file</code></p>
+<p>在当前目录查找以两个小写字母和两个数字命名的txt文件</p>
+<p><code>find . -name &quot;[a-z][a-z][0-9][0-9].txt&quot; [-print]</code></p>
+]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[hexo代码块滚动条走开]]></title>
+      <url>http://dnspool.cn/2016/08/20/hexo%E4%BB%A3%E7%A0%81%E5%9D%97%E6%BB%9A%E5%8A%A8%E6%9D%A1%E8%B5%B0%E5%BC%80/</url>
+      <content type="html"><![CDATA[<p>折腾了几天hexo，不是更新博文。</p>
+<p>一个绝逼困扰准完美主义者的问题——代码块外面的滚动条。一点都不能忍了……</p>
+<a id="more"></a>
+<h2 id="直接上图-这代码块能看吗？"><a href="#直接上图-这代码块能看吗？" class="headerlink" title="直接上图,这代码块能看吗？"></a>直接上图,这代码块能看吗？</h2><p><img src="/blog/img/highlight-f.PNG" alt=""></p>
+<p>从使用hexo这几天来，前端小白多姿式搜索。皇天不付苦逼人</p>
+<h2 id="手抖一下的事-我yan没gai装xin啊suan-。"><a href="#手抖一下的事-我yan没gai装xin啊suan-。" class="headerlink" title="手抖一下的事(我yan没gai装xin啊suan)。"></a>手抖一下的事(我yan没gai装xin啊suan)。</h2><p><img src="/blog/img/themes-yilia-source-css-_partial-highlight.styl.PNG" alt=""></p>
+<h2 id="拨云见日"><a href="#拨云见日" class="headerlink" title="拨云见日"></a>拨云见日</h2><p><img src="/blog/img/highlight-g.PNG" alt=""></p>
+<h3 id="参考链接：Swing博客"><a href="#参考链接：Swing博客" class="headerlink" title="参考链接：Swing博客"></a>参考链接：<a href="http://www.wing3.cn/2016/07/29/%E8%AE%B0%E4%B8%80%E6%AC%A1Hexo%E4%B8%BB%E9%A2%98%E7%9A%84%E4%BF%AE%E6%94%B9/" target="_blank" rel="external">Swing博客</a></h3>]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[ElastAlert 告警示例]]></title>
+      <url>http://dnspool.cn/2016/08/19/ElastAlert%E5%91%8A%E8%AD%A6%E7%A4%BA%E4%BE%8B/</url>
+      <content type="html"><![CDATA[<p>本篇关于ElastAlert告警类型示例</p>
+<a id="more"></a>
+<p><a href="http://engineeringblog.yelp.com/2015/10/elastalert-alerting-at-scale-with-elasticsearch.html" target="_blank" rel="external">参考链接</a></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div></pre></td><td class="code"><pre><div class="line"><span class="attr">name:</span> Large Number of <span class="number">500</span> Responses</div><div class="line"><span class="comment"># 1. Define which documents to monitor</span></div><div class="line"><span class="attr">es_host:</span> elasticsearch.example.com</div><div class="line"><span class="attr">es_port:</span> <span class="number">9200</span></div><div class="line"><span class="attr">index:</span> logstash-responses-*</div><div class="line"><span class="attr">filter:</span></div><div class="line">  <span class="comment"># Format &#123;'filter': &#123;'bool': &#123;'must': [config.filter]&#125;&#125;&#125; </span></div><div class="line">  <span class="comment"># and:</span></div><div class="line">      <span class="comment"># filters:</span></div><div class="line">          <span class="comment"># - [filters from rule.yaml]</span></div><div class="line"><span class="comment"># - query:</span></div><div class="line">    <span class="comment"># query_string:</span></div><div class="line">      <span class="comment"># query: "username: bob"</span></div><div class="line"><span class="comment"># - query:</span></div><div class="line">    <span class="comment"># query_string:</span></div><div class="line">      <span class="comment"># query: "_type: login_logs"</span></div><div class="line"><span class="comment"># - query:</span></div><div class="line">    <span class="comment"># query_string:</span></div><div class="line">      <span class="comment"># query: "field: value OR otherfield: othervalue"</span></div><div class="line"><span class="comment"># - query:</span></div><div class="line">    <span class="comment"># query_string:</span></div><div class="line">      <span class="comment"># query: "this: that AND these: those"</span></div><div class="line"><span class="comment"># - query:</span></div><div class="line">    <span class="comment"># wildcard:</span></div><div class="line">      <span class="comment"># field: "foo*bar"</span></div><div class="line">  <span class="comment"># - regexp:</span></div><div class="line">       <span class="comment"># ip_address: “10\\..*”</span></div><div class="line"><span class="comment"># - term:</span></div><div class="line">    <span class="comment"># name_field: "bob"</span></div><div class="line"><span class="comment"># - term:</span></div><div class="line">    <span class="comment"># _type: "login_logs"</span></div><div class="line"><span class="comment"># - term:</span></div><div class="line">     <span class="comment"># _type: ssh_login</span></div><div class="line"><span class="comment"># - term:</span></div><div class="line">     <span class="comment"># outcome: failure</span></div><div class="line"><span class="attr">- term:</span></div><div class="line"><span class="attr">      response_code:</span> <span class="number">500</span></div><div class="line"><span class="comment"># - terms:</span></div><div class="line">    <span class="comment"># field: ["value1", "value2"]</span></div><div class="line"><span class="comment"># - terms:</span></div><div class="line">    <span class="comment"># fieldX: ["value1", "value2"]</span></div><div class="line">    <span class="comment"># fieldY: ["something", "something_else"]</span></div><div class="line">    <span class="comment"># fieldZ: ["foo", "bar", "baz"]</span></div><div class="line">    <span class="comment"># minimum_should_match: 2</span></div><div class="line"><span class="comment"># - range:</span></div><div class="line">    <span class="comment"># status_code:</span></div><div class="line">      <span class="comment"># from: 500</span></div><div class="line">      <span class="comment"># to: 599</span></div><div class="line"><span class="comment"># - or:</span></div><div class="line">    <span class="comment"># - term:</span></div><div class="line">        <span class="comment"># field: "value"</span></div><div class="line">    <span class="comment"># - wildcard:</span></div><div class="line">        <span class="comment"># field: "foo*bar"</span></div><div class="line">    <span class="comment"># - and:</span></div><div class="line">        <span class="comment"># - not:</span></div><div class="line">            <span class="comment"># term:</span></div><div class="line">              <span class="comment"># field: "value"</span></div><div class="line">        <span class="comment"># - not:</span></div><div class="line">            <span class="comment"># term:</span></div><div class="line">              <span class="comment"># _type: "something"</span></div><div class="line"><span class="comment"># 2. 匹配模式配置</span></div><div class="line"><span class="attr">type:</span> frequency</div><div class="line"><span class="attr">num_events:</span> <span class="number">10</span></div><div class="line"><span class="attr">timeframe:</span></div><div class="line">  <span class="comment"># weeks:</span></div><div class="line">  <span class="comment"># days:</span></div><div class="line">  <span class="comment"># hours:</span></div><div class="line"><span class="attr">  minutes:</span> <span class="number">5</span></div><div class="line">  <span class="comment"># seconds:</span></div><div class="line"><span class="comment"># 3. 报警配置</span></div><div class="line"><span class="attr">alert:</span></div><div class="line"><span class="bullet">  -</span> email</div><div class="line"><span class="attr">email:</span> example@example.com</div></pre></td></tr></table></figure>
+<p>告警邮件内容定制</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="attr">alert_text:</span> <span class="string">|</span></div><div class="line">    ElastAlert has detected suspicious activity for &#123;0&#125;.</div><div class="line">    At &#123;1&#125;, an &#123;2&#125; error occured. Do something about it!</div><div class="line"><span class="attr">alert_text_args:</span></div><div class="line"><span class="bullet">  -</span> username</div><div class="line"><span class="bullet">  -</span> timestamp</div><div class="line"><span class="bullet">  -</span> error_type</div></pre></td></tr></table></figure>
+<p>we might get an alert that looks something like this:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">Large Number of 500 Responses</div><div class="line"></div><div class="line">At least 100 events occurred between 8-18 4:20 PDT and 8-18 5:20 PDT</div><div class="line"></div><div class="line">url:</div><div class="line">/some/url/path: 73</div><div class="line">/foo/bar: 14</div><div class="line">/index.html: 13</div><div class="line"></div><div class="line">@timestamp: 2016-08-18T12:20:36Z</div></pre></td></tr></table></figure>
+<p>更多告警</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># Alert when any SSH failures occur</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      _type:</span> ssh</div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      outcome:</span> failure</div><div class="line"><span class="attr">type:</span> any</div></pre></td></tr></table></figure>
+<p>The <code>any</code> type will alert on any document which matches the filter. Maybe this would generate too many alerts. We can change the type to <code>frequency</code> to only alert if multiple SSH failures occur. We can refine it further by using <code>query_key</code> to group the events by username. This will allow us to alert only if a certain number of failures have occurred for a given user.</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># Alert when 10 SSH failures occur for a single user</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      _type:</span> ssh</div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      outcome:</span> failure</div><div class="line"><span class="attr">type:</span> frequency</div><div class="line"><span class="attr">num_events:</span> <span class="number">10</span></div><div class="line"><span class="attr">timeframe:</span></div><div class="line"><span class="attr">  hours:</span> <span class="number">1</span></div><div class="line"><span class="attr">query_key:</span> username</div></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># Alert when a single user has connections from 2 IPs</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      _type:</span> ssh</div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      outcome:</span> success</div><div class="line"><span class="attr">type:</span> cardinality</div><div class="line"><span class="attr">max_cardinality:</span> <span class="number">1</span></div><div class="line"><span class="attr">cardinality_field:</span> ip_address</div><div class="line"><span class="attr">timeframe:</span></div><div class="line"><span class="attr">  days:</span> <span class="number">1</span></div><div class="line"><span class="attr">query_key:</span> username</div></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># Alert if number of errors triples in an hour</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      _type:</span> error</div><div class="line"><span class="attr">type:</span> spike</div><div class="line"><span class="attr">spike_height:</span> <span class="number">3</span></div><div class="line"><span class="attr">spike_type:</span> up</div><div class="line"><span class="attr">threshold_ref:</span> <span class="number">10</span></div><div class="line"><span class="attr">timeframe:</span></div><div class="line"><span class="attr">  hours:</span> <span class="number">1</span></div><div class="line"><span class="attr">top_count_keys:</span></div><div class="line"><span class="bullet">  -</span> error_type</div></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># A new error type occurred</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - term:</span></div><div class="line"><span class="attr">      _type:</span> error</div><div class="line"><span class="attr">query_key:</span> error_type</div><div class="line"><span class="attr">type:</span> new_term</div><div class="line"><span class="attr">include:</span></div><div class="line"><span class="bullet">  -</span> traceback</div></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># Alert if a host stops serving 200 responses for an hour</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - not:</span></div><div class="line"><span class="attr">      range:</span></div><div class="line"><span class="attr">        response_code:</span> </div><div class="line"><span class="attr">          from:</span> <span class="number">500</span></div><div class="line"><span class="attr">          to:</span> <span class="number">599</span></div><div class="line"><span class="attr">type:</span> flatline</div><div class="line"><span class="attr">threshold:</span> <span class="number">1</span></div><div class="line"><span class="attr">timeframe:</span></div><div class="line"><span class="attr">  hours:</span> <span class="number">1</span></div><div class="line"><span class="attr">query_key:</span> hostname</div></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># All requests in a week which took over 10 seconds</span></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">  - range:</span></div><div class="line"><span class="attr">      response_time:</span> </div><div class="line"><span class="attr">         from:</span> <span class="number">10</span></div><div class="line"><span class="attr">type:</span> any</div><div class="line"><span class="attr">aggregation:</span></div><div class="line"><span class="attr">  weeks:</span> <span class="number">1</span></div><div class="line"><span class="attr">include:</span></div><div class="line"><span class="bullet">  -</span> ip_address</div><div class="line"><span class="bullet">  -</span> hostname</div><div class="line"><span class="bullet">  -</span> uri</div><div class="line"><span class="bullet">  -</span> response_time</div></pre></td></tr></table></figure>
+<h3 id="启动脚本"><a href="#启动脚本" class="headerlink" title="启动脚本"></a>启动脚本</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">cat &gt;/lib/systemd/system/elastalert.service &lt;&lt;EOF</div><div class="line">[Unit]</div><div class="line">Description=elastalert</div><div class="line">After=multi-user.target</div><div class="line"></div><div class="line">[Service]</div><div class="line">Type=simple</div><div class="line">WorkingDirectory=/opt/elastalert</div><div class="line">ExecStart=/usr/bin/elastalert</div><div class="line"></div><div class="line">[Install]</div><div class="line">WantedBy=multi-user.target</div><div class="line">EOF</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">ln -s /lib/systemd/system/elastalert.service /etc/systemd/system/elastalert.service</div><div class="line">systemctl daemon-reload</div><div class="line">systemctl enable elastalert.service</div><div class="line">systemctl start elastalert.service</div><div class="line">systemctl status elastalert.service</div></pre></td></tr></table></figure>
+]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[开源压测工具nGrinder学习记录]]></title>
+      <url>http://dnspool.cn/2016/08/18/%E5%BC%80%E6%BA%90%E5%8E%8B%E6%B5%8B%E5%B7%A5%E5%85%B7nGrinder%E5%AD%A6%E4%B9%A0%E8%AE%B0%E5%BD%95/</url>
+      <content type="html"><![CDATA[<p>使用nGrinder来压测只需要三步：</p>
+<ol>
+<li>Python编写测试场景；</li>
+<li>配置测试参数，如模拟用户数、周期、步长控制、资源监控等；</li>
+<li>自动生成报告。</li>
+</ol>
+<a id="more"></a>
+<h1 id="运行环境"><a href="#运行环境" class="headerlink" title="运行环境"></a>运行环境</h1><p>nGrinder controller要在Tomcat下运行，新的版本已经整合了Tomcat；</p>
+<p>nGrinder agent要使用JDK。</p>
+<p><a href="http://www.cubrid.org/wiki_ngrinder/entry/general-architecture" target="_blank" rel="external">General Architecture</a></p>
+<p><img src="http://www.cubrid.org/files/attach/images/379199/830/434/image_4.png" alt="Architecture"></p>
+<h1 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h1><h3 id="下载地址"><a href="#下载地址" class="headerlink" title="下载地址"></a>下载地址</h3><p><code>https://sourceforge.net/projects/ngrinder/files/</code></p>
+<p>##　Controller 两种运行方式</p>
+<ul>
+<li>自执行</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">java -XX:MaxPermSize=200m -jar ngrinder-controller-X.X.war --port $PORT</div></pre></td></tr></table></figure>
+<ul>
+<li>用Tomcat</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"># 在运行脚本加入内容后启动Tomcat</div><div class="line">JAVA_OPTS=&quot;-Xms600m -Xmx1024m -XX:MaxPermSize=200m&quot;</div></pre></td></tr></table></figure>
+<p>至此，Contorller启动完成，在浏览器直接访问就可以了，简单到令人发指。</p>
+<h2 id="Agent"><a href="#Agent" class="headerlink" title="Agent"></a>Agent</h2><p>通过Contorller页面下载默认配置的包，直接解压执行启停操作：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">run_agent.sh</div><div class="line">stop_agent.sh</div></pre></td></tr></table></figure>
+<p>修改<code>ulimit</code>更多的线程运行，先检查一下系统相关参数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"># ulimit -a</div><div class="line">core file size          (blocks, -c) 0</div><div class="line">data seg size           (kbytes, -d) unlimited</div><div class="line">scheduling priority             (-e) 0</div><div class="line">file size               (blocks, -f) unlimited</div><div class="line">pending signals                 (-i) 60953</div><div class="line">max locked memory       (kbytes, -l) 64</div><div class="line">max memory size         (kbytes, -m) unlimited</div><div class="line">open files                      (-n) 65530</div><div class="line">pipe size            (512 bytes, -p) 8</div><div class="line">POSIX message queues     (bytes, -q) 819200</div><div class="line">real-time priority              (-r) 0</div><div class="line">stack size              (kbytes, -s) 8192</div><div class="line">cpu time               (seconds, -t) unlimited</div><div class="line">max user processes              (-u) 60953</div><div class="line">virtual memory          (kbytes, -v) unlimited</div><div class="line">file locks                      (-x) unlimited</div></pre></td></tr></table></figure>
+<h2 id="Monitor"><a href="#Monitor" class="headerlink" title="Monitor"></a>Monitor</h2><p>这是Agent的一个子集，在目标服务器收集系统相关资源数据。通过Contorller页面下载并执行启停操作：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">run_monitor_bg.sh</div><div class="line">stop_monitor.sh</div></pre></td></tr></table></figure>
+<h1 id="测试案例"><a href="#测试案例" class="headerlink" title="测试案例"></a>测试案例</h1>]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[文章分类标签初步规划]]></title>
+      <url>http://dnspool.cn/2016/08/17/%E6%96%87%E7%AB%A0%E5%88%86%E7%B1%BB%E6%A0%87%E7%AD%BE%E5%88%9D%E6%AD%A5%E8%A7%84%E5%88%92/</url>
+      <content type="html"><![CDATA[<p>有点贪心，什么都要接触。没有一样精通……</p>
+<p>以后在这里的文章也会随心而出，故先简单做个标签使用规划。</p>
+<a id="more"></a>
+<h1 id="生活-amp-工作"><a href="#生活-amp-工作" class="headerlink" title="生活&amp;工作"></a>生活&amp;工作</h1><p>[TOC]</p>
+<h2 id="生活标签"><a href="#生活标签" class="headerlink" title="生活标签"></a>生活标签</h2><ul>
+<li><p>所见</p>
+</li>
+<li><p>所感</p>
+</li>
+<li>图说</li>
+</ul>
+<h2 id="工作标签"><a href="#工作标签" class="headerlink" title="工作标签"></a>工作标签</h2><ul>
+<li>技术<ul>
+<li>Linux</li>
+<li>Python</li>
+<li>Nginx</li>
+<li>OpenStack &amp; Docker</li>
+<li>Cluster</li>
+<li>Monitor</li>
+</ul>
+</li>
+<li>工作<ul>
+<li>故障处理</li>
+</ul>
+</li>
+</ul>
+<h2 id="博客"><a href="#博客" class="headerlink" title="博客"></a>博客</h2><ul>
+<li>博客</li>
+</ul>
+]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[日志告警使用邮件通知之ElastAlert]]></title>
+      <url>http://dnspool.cn/2016/08/15/%E6%97%A5%E5%BF%97%E5%91%8A%E8%AD%A6%E4%BD%BF%E7%94%A8%E9%82%AE%E4%BB%B6%E9%80%9A%E7%9F%A5%E4%B9%8BElastAlert/</url>
+      <content type="html"><![CDATA[<p>本篇关于部署ElastAlert匹配日志关键字进行邮件通知的操作步骤</p>
+<a id="more"></a>
+<h1 id="用ElastAlert日志告警邮件通知"><a href="#用ElastAlert日志告警邮件通知" class="headerlink" title="用ElastAlert日志告警邮件通知"></a>用ElastAlert日志告警邮件通知</h1><p>[TOC]</p>
+<h2 id="环境要求"><a href="#环境要求" class="headerlink" title="环境要求"></a>环境要求</h2><p>Python 2.6/2.7</p>
+<p>pip</p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><ul>
+<li>源码下载</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">cd /opt</div><div class="line">git clone https://github.com/Yelp/elastalert.git</div></pre></td></tr></table></figure>
+<ul>
+<li>安装</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">easy_install -U setuptools</div><div class="line">cd elastalert</div><div class="line">python setup.py install</div><div class="line"></div><div class="line">wget -O /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/epel-7.repo</div><div class="line">yum provides pip</div><div class="line">yum insatll python-pip</div><div class="line"></div><div class="line">pip install -r requirements.txt</div></pre></td></tr></table></figure>
+<h2 id="运行"><a href="#运行" class="headerlink" title="运行"></a>运行</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">cd /opt/elastalert</div><div class="line">cp config.yaml.example config.yaml</div></pre></td></tr></table></figure>
+<ul>
+<li>在<code>config.yaml</code>中配置正确的Elasticsearch集群信息</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># cat elastalert/config.yaml</span></div><div class="line"><span class="comment"># This is the folder that contains the rule yaml files</span></div><div class="line"><span class="comment"># Any .yaml file will be loaded as a rule</span></div><div class="line"><span class="attr">rules_folder:</span> example_rules</div><div class="line"></div><div class="line"><span class="comment"># How often ElastAlert will query elasticsearch</span></div><div class="line"><span class="comment"># The unit can be anything from weeks to seconds</span></div><div class="line"><span class="attr">run_every:</span></div><div class="line"><span class="attr">  minutes:</span> <span class="number">1</span></div><div class="line"></div><div class="line"><span class="comment"># ElastAlert will buffer results from the most recent</span></div><div class="line"><span class="comment"># period of time, in case some log sources are not in real time</span></div><div class="line"><span class="attr">buffer_time:</span></div><div class="line"><span class="attr">  minutes:</span> <span class="number">15</span></div><div class="line"></div><div class="line"><span class="comment"># The elasticsearch hostname for metadata writeback</span></div><div class="line"><span class="comment"># Note that every rule can have its own elasticsearch host</span></div><div class="line"><span class="comment"># es_host: elasticsearch.example.com</span></div><div class="line"><span class="attr">es_host:</span> <span class="number">172.30</span><span class="number">.5</span><span class="number">.19</span></div><div class="line"></div><div class="line"><span class="comment"># The elasticsearch port</span></div><div class="line"><span class="attr">es_port:</span> <span class="number">9200</span></div><div class="line"></div><div class="line"><span class="comment"># Optional URL prefix for elasticsearch</span></div><div class="line"><span class="comment">#es_url_prefix: elasticsearch</span></div><div class="line"></div><div class="line"><span class="comment"># Connect with SSL to elasticsearch</span></div><div class="line"><span class="comment">#use_ssl: True</span></div><div class="line"></div><div class="line"><span class="comment"># GET request with body is the default option for Elasticsearch. </span></div><div class="line"><span class="comment"># If it fails for some reason, you can pass 'GET', 'POST' or 'source'.</span></div><div class="line"><span class="comment"># See http://elasticsearch-py.readthedocs.io/en/master/connection.html?highlight=send_get_body_as#transport</span></div><div class="line"><span class="comment"># for details</span></div><div class="line"><span class="comment">#es_send_get_body_as: GET</span></div><div class="line"></div><div class="line"><span class="comment"># Option basic-auth username and password for elasticsearch</span></div><div class="line"><span class="comment">#es_username: someusername</span></div><div class="line"><span class="comment">#es_password: somepassword</span></div><div class="line"></div><div class="line"><span class="comment"># The index on es_host which is used for metadata storage</span></div><div class="line"><span class="comment"># This can be a unmapped index, but it is recommended that you run</span></div><div class="line"><span class="comment"># elastalert-create-index to set a mapping</span></div><div class="line"><span class="attr">writeback_index:</span> elastalert_status</div><div class="line"></div><div class="line"><span class="comment"># If an alert fails for some reason, ElastAlert will retry</span></div><div class="line"><span class="comment"># sending the alert until this time period has elapsed</span></div><div class="line"><span class="attr">alert_time_limit:</span></div><div class="line"><span class="attr">  days:</span> <span class="number">2</span></div></pre></td></tr></table></figure>
+<ul>
+<li>在Elasticsearch中创建index <code>elastalert_status</code></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"># 事先启动Elasticsearch</div><div class="line">elastalert-create-index</div><div class="line"></div><div class="line"># 可以指定es_host和es_port</div><div class="line">elastalert-create-index --host 172.30.5.19 --port 9200</div></pre></td></tr></table></figure>
+<ul>
+<li>查看索引</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">curl -XGET http://172.30.5.19:9200/elastalert_status</div></pre></td></tr></table></figure>
+<ul>
+<li>在<code>rules folder</code>中编写需要的告警规则，配置正确的Elasticsearch集群信息</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># cat elastalert/example_rules/example_any.yml</span></div><div class="line"><span class="comment"># Alert when the rate of events exceeds a threshold</span></div><div class="line"></div><div class="line"><span class="comment"># (Optional)</span></div><div class="line"><span class="comment"># Elasticsearch host</span></div><div class="line"><span class="attr">es_host:</span> <span class="number">172.30</span><span class="number">.5</span><span class="number">.19</span></div><div class="line"></div><div class="line"><span class="comment"># (Optional)</span></div><div class="line"><span class="comment"># Elasticsearch port</span></div><div class="line"><span class="attr">es_port:</span> <span class="number">9200</span></div><div class="line"></div><div class="line"><span class="comment"># (OptionaL) Connect with SSL to elasticsearch</span></div><div class="line"><span class="comment">#use_ssl: True</span></div><div class="line"></div><div class="line"><span class="comment"># (Optional) basic-auth username and password for elasticsearch</span></div><div class="line"><span class="comment">#es_username: someusername</span></div><div class="line"><span class="comment">#es_password: somepassword</span></div><div class="line"></div><div class="line"><span class="comment"># (Required)</span></div><div class="line"><span class="comment"># Rule name, must be unique</span></div><div class="line"><span class="attr">name:</span> Example any rule</div><div class="line"></div><div class="line"><span class="comment"># (Required)</span></div><div class="line"><span class="comment"># Type of alert.</span></div><div class="line"><span class="comment"># the frequency rule type alerts when num_events events occur with timeframe time</span></div><div class="line"><span class="comment">#type: frequency</span></div><div class="line"><span class="attr">type:</span> any</div><div class="line"></div><div class="line"><span class="comment"># (Required)</span></div><div class="line"><span class="comment"># Index to search, wildcard supported</span></div><div class="line"><span class="attr">index:</span> hangout-platform-msgrpc-*</div><div class="line"></div><div class="line"><span class="attr">filter:</span></div><div class="line"><span class="attr">- term:</span></div><div class="line"><span class="attr">    status:</span> <span class="number">500</span></div><div class="line"></div><div class="line"><span class="comment"># (Required)</span></div><div class="line"><span class="comment"># The alert is use when a match is found</span></div><div class="line"><span class="attr">alert:</span></div><div class="line"><span class="bullet">-</span> <span class="string">"email"</span></div><div class="line"></div><div class="line"><span class="comment"># (required, email specific)</span></div><div class="line"><span class="comment"># a list of email addresses to send alerts to</span></div><div class="line"><span class="attr">email:</span></div><div class="line"><span class="bullet">-</span> <span class="string">"sendto@abc.com"</span></div><div class="line"></div><div class="line"><span class="comment"># smtp_host: HOST URL</span></div><div class="line"><span class="comment"># smtp_port: PORT NO.</span></div><div class="line"><span class="comment"># from_addr: "xyz@abc.com"</span></div></pre></td></tr></table></figure>
+<ul>
+<li>使用下面的命令测试语法是否正确</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">elastalert-test-rule example_rules/example_any.yml</div></pre></td></tr></table></figure>
+<ul>
+<li>运行</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">python -m elastalert.elastalert --verbose --rule example_rules/example_any.yml</div></pre></td></tr></table></figure>
+]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[一步一步把玩hexo on coding.net]]></title>
+      <url>http://dnspool.cn/2016/08/14/%E5%9C%A8coding%E4%B8%8A%E6%8A%8A%E7%8E%A9hexo/</url>
+      <content type="html"><![CDATA[<p>添加categories,以免每次手动输入文章开头语法……</p>
+<a id="more"></a>
+<h1 id="一步一步玩转hexo（启程篇）"><a href="#一步一步玩转hexo（启程篇）" class="headerlink" title="一步一步玩转hexo（启程篇）"></a>一步一步玩转hexo（启程篇）</h1><p>[TOC]</p>
+<h2 id="环境配置略过，待后续增补"><a href="#环境配置略过，待后续增补" class="headerlink" title="环境配置略过，待后续增补"></a>环境配置略过，待后续增补</h2><h2 id="开始准备"><a href="#开始准备" class="headerlink" title="开始准备"></a>开始准备</h2><p>先创建个目录</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">mkdir blog</div><div class="line">cd blog</div></pre></td></tr></table></figure>
+<p>克隆<code>hexo-starter</code>,<code>themes/landscape</code>,安装hexo依赖</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">hexo init myblog</div><div class="line">cd myblog</div></pre></td></tr></table></figure>
+<p>安装<code>package.json</code>依赖</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">npm install</div></pre></td></tr></table></figure>
+<p>安装hexo server</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">npm install hexo-server --save</div></pre></td></tr></table></figure>
+<h2 id="服务启动-先看看效果"><a href="#服务启动-先看看效果" class="headerlink" title="服务启动,先看看效果"></a>服务启动,先看看效果</h2><p>启动hexo</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">hexo s</div></pre></td></tr></table></figure>
+<h2 id="部署到远端"><a href="#部署到远端" class="headerlink" title="部署到远端"></a>部署到远端</h2><h3 id="修改-config-yml"><a href="#修改-config-yml" class="headerlink" title="修改_config.yml"></a>修改<code>_config.yml</code></h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">...</div><div class="line"><span class="attr">deploy:</span></div><div class="line"><span class="attr">  type:</span> git</div><div class="line"><span class="attr">  repo:</span> https://git.coding.net/cloudsa/blog.git</div><div class="line"><span class="attr">  branch:</span> master</div><div class="line">...</div></pre></td></tr></table></figure>
+<h3 id="安装hexo-deployer-git"><a href="#安装hexo-deployer-git" class="headerlink" title="安装hexo-deployer-git"></a>安装<code>hexo-deployer-git</code></h3><p><code>npm install hexo-deployer-git --save</code></p>
+<h3 id="生成静态页面"><a href="#生成静态页面" class="headerlink" title="生成静态页面"></a>生成静态页面</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">hexo g</div></pre></td></tr></table></figure>
+<h3 id="生成Staticfile（待验证是否必须）"><a href="#生成Staticfile（待验证是否必须）" class="headerlink" title="生成Staticfile（待验证是否必须）"></a>生成<code>Staticfile</code>（待验证是否必须）</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">touch source/Staticfile</div></pre></td></tr></table></figure>
+<h3 id="推到远端"><a href="#推到远端" class="headerlink" title="推到远端"></a>推到远端</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">hexo g</div></pre></td></tr></table></figure>
+<h2 id="果断换主题，要不怎么叫折腾呢？"><a href="#果断换主题，要不怎么叫折腾呢？" class="headerlink" title="果断换主题，要不怎么叫折腾呢？"></a>果断换主题，要不怎么叫折腾呢？</h2><p>中间不断尝试，情定一款</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">git clone https://github.com/litten/hexo-theme-yilia.git themes/yilia</div></pre></td></tr></table></figure>
+<h2 id="主题生效"><a href="#主题生效" class="headerlink" title="主题生效"></a>主题生效</h2><p>生成静态页面</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">hexo g</div></pre></td></tr></table></figure>
+<p>部署远端</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">hexo d</div></pre></td></tr></table></figure>
+<p>中间有问题可以随时<code>hexo clean</code>,然后生成静态内容推到远端。</p>
+]]></content>
+    </entry>
+    
+    <entry>
+      <title><![CDATA[Hello World]]></title>
+      <url>http://dnspool.cn/2016/08/14/hello-world/</url>
+      <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="external">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="external">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="external">GitHub</a>.</p>
+<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo new <span class="string">"My New Post"</span></div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="external">Writing</a></p>
+<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo server</div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="external">Server</a></p>
+<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo generate</div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="external">Generating</a></p>
+<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">$ hexo deploy</div></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="external">Deployment</a></p>
+]]></content>
+    </entry>
+    
+  
+  
+</search>
